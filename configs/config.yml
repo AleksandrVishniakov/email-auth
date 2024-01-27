@@ -1,0 +1,13 @@
+http:
+  timeouts:
+    read-ms: 10000
+    write-ms: 10000
+    read-header-ms: 10000
+    idle-ms: 10000
+
+db:
+  host: "postgres"
+  port: 5432
+  username: "postgres"
+  db-name: "url-shortener-auth-db"
+  ssl-mode: "disable"
