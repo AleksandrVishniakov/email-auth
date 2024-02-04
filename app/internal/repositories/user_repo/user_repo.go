@@ -4,8 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/AleksandrVishniakov/url-shortener-auth/app/pkg/e"
-	"log"
+	"github.com/AleksandrVishniakov/email-auth/app/pkg/e"
 )
 
 var (
@@ -16,6 +15,8 @@ type UserRepository interface {
 	GetUserByEmail(email string) (*UserDAO, error)
 	NewUser(user *UserCreationData) error
 	MarkEmailAsVerified(email string) error
+	ResetEmailVerifyingCode(email string) error
+	UpdateEmailVerifyingCode(email string, code int) error
 }
 
 type userRepository struct {
@@ -35,14 +36,13 @@ func (u *userRepository) GetUserByEmail(email string) (user *UserDAO, err error)
 	)
 
 	err = row.Err()
-	log.Println("db:", err, errors.Is(err, sql.ErrNoRows))
 
 	if err != nil {
 		return nil, err
 	}
 
 	user = &UserDAO{}
-	err = row.Scan(&user.Id, &user.Email, &user.IsEmailVerified, &user.EmailVerifyingHash, &user.CreatedAt)
+	err = row.Scan(&user.Id, &user.Email, &user.IsEmailVerified, &user.CreatedAt, &user.EmailVerifyingCode)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrUserNotFound
 	}
@@ -58,9 +58,9 @@ func (u *userRepository) NewUser(user *UserCreationData) (err error) {
 	defer func() { err = wrapDbErrIfNotNil(err, "error while creating new user") }()
 
 	_, err = u.db.Exec(
-		"INSERT INTO users (email, email_verifying_hash) VALUES ($1, $2)",
+		"INSERT INTO users (email, email_verifying_code) VALUES ($1, $2)",
 		user.Email,
-		user.EmailVerifyingHash,
+		user.EmailVerifyingCode,
 	)
 
 	if err != nil {
@@ -74,7 +74,38 @@ func (u *userRepository) MarkEmailAsVerified(email string) (err error) {
 	defer func() { err = wrapDbErrIfNotNil(err, "error while marking email as verified") }()
 
 	_, err = u.db.Exec(
-		"UPDATE users SET is_email_verified=true, email_verifying_hash='' WHERE email=$1",
+		"UPDATE users SET is_email_verified=true WHERE email=$1",
+		email,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (u *userRepository) ResetEmailVerifyingCode(email string) (err error) {
+	defer func() { err = wrapDbErrIfNotNil(err, "error while reseting email verifyng code") }()
+
+	_, err = u.db.Exec(
+		"UPDATE users SET email_verifying_code=-1 WHERE email=$1",
+		email,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (u *userRepository) UpdateEmailVerifyingCode(email string, code int) (err error) {
+	defer func() { err = wrapDbErrIfNotNil(err, "error while updating email verifyng code") }()
+
+	_, err = u.db.Exec(
+		"UPDATE users SET email_verifying_code=$1 WHERE email=$2",
+		code,
 		email,
 	)
 

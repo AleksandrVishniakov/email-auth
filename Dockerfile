@@ -1,6 +1,6 @@
 FROM golang:1.21-alpine as build
 
-WORKDIR /go/src/url-shortener-auth
+WORKDIR /go/src/email-auth
 
 COPY app ./app/
 

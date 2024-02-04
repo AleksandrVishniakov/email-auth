@@ -8,7 +8,3 @@ type UserDTO struct {
 	IsEmailVerified bool      `json:"isEmailVerified"`
 	CreatedAt       time.Time `json:"createdAt"`
 }
-
-type EmailVerifyingDTO struct {
-	EmailVerifyingLink string `json:"emailVerifyingLink"`
-}

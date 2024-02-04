@@ -3,21 +3,16 @@ package user_service
 import (
 	"errors"
 	"fmt"
-	"github.com/AleksandrVishniakov/url-shortener-auth/app/internal/repositories/user_repo"
-	"github.com/AleksandrVishniakov/url-shortener-auth/app/internal/services/email_service"
-	"github.com/AleksandrVishniakov/url-shortener-auth/app/pkg/str"
-	"log"
-)
-
-var (
-	ErrEmailValidation = errors.New("email validation failed")
-	ErrEmailIsExists   = errors.New("email is already exists")
+	"github.com/AleksandrVishniakov/email-auth/app/internal/repositories/user_repo"
+	"github.com/AleksandrVishniakov/email-auth/app/internal/services/email_service"
+	"math/rand"
+	"time"
 )
 
 type UserService interface {
 	GetUserByEmail(email string) (*UserDTO, error)
-	NewUser(email string, hostname string) error
-	VerifyEmail(email, verifyingHash string) error
+	AuthUser(email string) (bool, error)
+	VerifyEmail(email string, code int) (bool, error)
 }
 
 type userService struct {
@@ -41,85 +36,88 @@ func (u *userService) GetUserByEmail(email string) (*UserDTO, error) {
 	return mapUserDTOFromDAO(user), nil
 }
 
-func (u *userService) NewUser(email string, hostname string) error {
+func (u *userService) AuthUser(email string) (bool, error) {
+	var isUserExists bool
 	user, err := u.userRepository.GetUserByEmail(email)
-	log.Println("email:", email, "     err:", err)
 
-	if err == nil && user != nil && user.IsEmailVerified {
-		return ErrEmailIsExists
+	if err == nil && user != nil {
+		isUserExists = true
 	}
 
 	if errors.Is(err, user_repo.ErrUserNotFound) {
-		log.Println("not found")
 		err = nil
+		isUserExists = false
 	}
 
 	if err != nil {
-		log.Println("fail")
-		return err
+		return false, err
 	}
 
-	if user != nil && !user.IsEmailVerified {
-		link := createVerifyingLink(hostname, email, user.EmailVerifyingHash)
+	var isUserAuthenticated = isUserExists && user.IsEmailVerified
 
-		err = u.emailService.Write(&email_service.EmailContent{
-			To:      email,
-			Subject: "Completion of registration",
-			Body:    createEmailMessage(link),
+	code := generateCode()
+
+	if isUserAuthenticated || isUserExists {
+		err = u.userRepository.UpdateEmailVerifyingCode(email, code)
+		if err != nil {
+			return isUserAuthenticated, err
+		}
+	} else {
+		err = u.userRepository.NewUser(&user_repo.UserCreationData{
+			Email:              email,
+			EmailVerifyingCode: code,
 		})
 
-		return err
+		if err != nil {
+			return isUserAuthenticated, err
+		}
 	}
 
-	hash := str.Generate(64)
-	userData := &user_repo.UserCreationData{
-		Email:              email,
-		EmailVerifyingHash: hash,
-	}
-
-	err = u.userRepository.NewUser(userData)
-	if err != nil {
-		return err
-	}
-
-	link := createVerifyingLink(hostname, email, hash)
 	err = u.emailService.Write(&email_service.EmailContent{
 		To:      email,
-		Subject: "Completion of registration",
-		Body:    createEmailMessage(link),
+		Subject: createEmailSubject(code),
+		Body:    createEmailMessage(code),
 	})
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return isUserAuthenticated, err
 }
 
-func (u *userService) VerifyEmail(email, verifyingHash string) error {
+func (u *userService) VerifyEmail(email string, code int) (bool, error) {
 	user, err := u.userRepository.GetUserByEmail(email)
 
-	if user.IsEmailVerified {
-		return nil
-	}
-
-	log.Println(*user)
-	log.Println(verifyingHash)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	if user.EmailVerifyingHash != verifyingHash {
-		return ErrEmailValidation
+	if user.EmailVerifyingCode != code {
+		return false, nil
 	}
 
-	return u.userRepository.MarkEmailAsVerified(email)
+	err = u.userRepository.MarkEmailAsVerified(email)
+	if err != nil {
+		return false, err
+	}
+
+	err = u.userRepository.ResetEmailVerifyingCode(email)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
-func createEmailMessage(emailVerifyingLink string) string {
-	return fmt.Sprintf("Thank you for registering!\n We are glad to see you in our application. To complete the registration, follow the link:\n%s", emailVerifyingLink)
+func generateCode() int {
+	const minN = 100_000
+	rand.NewSource(time.Now().UnixNano())
+	return rand.Intn(900_000) + minN
 }
 
-func createVerifyingLink(hostname, email, hash string) string {
-	return fmt.Sprintf("http://%s/verify/%s?h=%s", hostname, email, hash)
+func createEmailSubject(code int) string {
+	codeStr := fmt.Sprintf("[%d]", code)
+	return fmt.Sprintf("Auth %s", codeStr)
+}
+
+func createEmailMessage(code int) string {
+	codeStr := fmt.Sprintf("[%d]", code)
+	return fmt.Sprintf("Thank you for registering!\n We are glad to see you in our application. To complete, enter this code into registration form:\n%s", codeStr)
 }

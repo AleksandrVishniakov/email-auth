@@ -21,18 +21,26 @@ type emailService struct {
 	hostname string
 }
 
-func NewEmailService(email, password, host, port string) EmailService {
+type EmailConfigs struct {
+	Host        string `yaml:"host"`
+	Port        string `yaml:"port"`
+	SenderEmail string `yaml:"sender-email"`
+	Password    string
+}
+
+func NewEmailService(cfg *EmailConfigs) EmailService {
+
 	auth := smtp.PlainAuth(
 		"",
-		email,
-		password,
-		host,
+		cfg.SenderEmail,
+		cfg.Password,
+		cfg.Host,
 	)
 
 	return &emailService{
 		auth:     auth,
-		sender:   email,
-		hostname: host + ":" + port,
+		sender:   cfg.SenderEmail,
+		hostname: cfg.Host + ":" + cfg.Port,
 	}
 }
 

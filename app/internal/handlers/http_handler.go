@@ -2,12 +2,13 @@ package handlers
 
 import (
 	"errors"
-	"github.com/AleksandrVishniakov/url-shortener-auth/app/internal/repositories/user_repo"
-	"github.com/AleksandrVishniakov/url-shortener-auth/app/internal/services/user_service"
-	"github.com/AleksandrVishniakov/url-shortener-auth/app/pkg/e"
+	"github.com/AleksandrVishniakov/email-auth/app/internal/handlers/middlewares"
+	"github.com/AleksandrVishniakov/email-auth/app/internal/repositories/user_repo"
+	"github.com/AleksandrVishniakov/email-auth/app/internal/services/user_service"
+	"github.com/AleksandrVishniakov/email-auth/app/pkg/e"
 	"github.com/gin-gonic/gin"
-	"html/template"
 	"net/http"
+	"strconv"
 )
 
 type HTTPHandler struct {
@@ -20,6 +21,7 @@ func NewHTTPHandler(userService user_service.UserService) *HTTPHandler {
 
 func (h *HTTPHandler) InitRoutes() *gin.Engine {
 	router := gin.Default()
+	router.Use(middlewares.CORSHeaders())
 
 	router.GET("/auth", h.authUser)
 	router.GET("/user/:email", h.getUserByEmail)
@@ -37,19 +39,17 @@ func (h *HTTPHandler) authUser(c *gin.Context) {
 		return
 	}
 
-	err := h.userService.NewUser(email, c.Request.Host)
-
-	if errors.Is(err, user_service.ErrEmailIsExists) {
-		rErr := e.NewResponseError(http.StatusConflict, err.Error())
-		rErr.Abort(c)
-		return
-	}
+	isUserAuthorized, err := h.userService.AuthUser(email)
 
 	if err != nil {
 		rErr := e.NewResponseError(http.StatusInternalServerError, err.Error())
 		rErr.Abort(c)
 		return
 	}
+
+	c.IndentedJSON(http.StatusOK, struct {
+		IsUserAuthorized bool `json:"isUserAuthorized"`
+	}{IsUserAuthorized: isUserAuthorized})
 }
 
 func (h *HTTPHandler) getUserByEmail(c *gin.Context) {
@@ -84,40 +84,33 @@ func (h *HTTPHandler) verifyEmail(c *gin.Context) {
 		return
 	}
 
-	hash := c.Request.URL.Query().Get("h")
-	if len(hash) != 64 {
-		rErr := e.NewResponseError(http.StatusBadRequest, "invalid hash")
+	codeStr := c.Request.URL.Query().Get("code")
+	if len(codeStr) != 6 {
+		rErr := e.NewResponseError(http.StatusBadRequest, "invalid code length")
 		rErr.Abort(c)
 		return
 	}
 
-	err := h.userService.VerifyEmail(email, hash)
+	code, err := strconv.Atoi(codeStr)
+	if err != nil {
+		rErr := e.NewResponseError(http.StatusBadRequest, err.Error())
+		rErr.Abort(c)
+		return
+	}
+
+	ok, err := h.userService.VerifyEmail(email, code)
 	if errors.Is(err, user_repo.ErrUserNotFound) {
 		rErr := e.NewResponseError(http.StatusNotFound, "email not found")
 		rErr.Abort(c)
 		return
 	}
 
-	if errors.Is(err, user_service.ErrEmailValidation) {
+	if !ok {
 		rErr := e.NewResponseError(http.StatusBadRequest, "email validation failed")
 		rErr.Abort(c)
 		return
 	}
 
-	if err != nil {
-		rErr := e.NewResponseError(http.StatusInternalServerError, err.Error())
-		rErr.Abort(c)
-		return
-	}
-
-	htmlBlob, err := template.ParseFiles("web/email_verified_page.html")
-	if err != nil {
-		rErr := e.NewResponseError(http.StatusInternalServerError, err.Error())
-		rErr.Abort(c)
-		return
-	}
-
-	err = htmlBlob.Execute(c.Writer, nil)
 	if err != nil {
 		rErr := e.NewResponseError(http.StatusInternalServerError, err.Error())
 		rErr.Abort(c)

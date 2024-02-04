@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
-	"github.com/AleksandrVishniakov/url-shortener-auth/app/internal/handlers"
-	"github.com/AleksandrVishniakov/url-shortener-auth/app/internal/repositories/postgres"
-	"github.com/AleksandrVishniakov/url-shortener-auth/app/internal/repositories/user_repo"
-	"github.com/AleksandrVishniakov/url-shortener-auth/app/internal/servers"
-	"github.com/AleksandrVishniakov/url-shortener-auth/app/internal/services/email_service"
-	"github.com/AleksandrVishniakov/url-shortener-auth/app/internal/services/user_service"
-	"github.com/AleksandrVishniakov/url-shortener-auth/app/utils/configs"
+	"github.com/AleksandrVishniakov/email-auth/app/internal/handlers"
+	"github.com/AleksandrVishniakov/email-auth/app/internal/repositories/postgres"
+	"github.com/AleksandrVishniakov/email-auth/app/internal/repositories/user_repo"
+	"github.com/AleksandrVishniakov/email-auth/app/internal/servers"
+	"github.com/AleksandrVishniakov/email-auth/app/internal/services/email_service"
+	"github.com/AleksandrVishniakov/email-auth/app/internal/services/user_service"
+	"github.com/AleksandrVishniakov/email-auth/app/utils/configs"
 	"github.com/joho/godotenv"
 	"golang.org/x/sync/errgroup"
 	"log"
@@ -24,6 +24,7 @@ func main() {
 	cfg := configs.MustConfigs()
 	cfg.DB.Password = os.Getenv("DB_PASSWORD")
 	cfg.HTTP.Port = os.Getenv("HTTP_PORT")
+	cfg.Email.Password = os.Getenv("EMAIL_PASSWORD")
 
 	mainCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -37,13 +38,7 @@ func main() {
 	slog.Info("db started")
 
 	var repo = user_repo.NewUserRepository(db)
-	var emailService = email_service.NewEmailService(
-		os.Getenv("SENDER_EMAIL"),
-		os.Getenv("EMAIL_PASSWORD"),
-		os.Getenv("EMAIL_HOST"),
-		os.Getenv("EMAIL_PORT"),
-	)
-
+	var emailService = email_service.NewEmailService(cfg.Email)
 	var userService = user_service.NewUserService(repo, emailService)
 	var handler = handlers.NewHTTPHandler(userService)
 

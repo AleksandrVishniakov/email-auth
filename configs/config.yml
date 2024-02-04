@@ -9,5 +9,10 @@ db:
   host: "postgres"
   port: 5432
   username: "postgres"
-  db-name: "url-shortener-auth-db"
+  db-name: "email-auth-db"
   ssl-mode: "disable"
+
+email:
+  host: "smtp.gmail.com"
+  port: 587
+  sender-email: "code.dev256@gmail.com"

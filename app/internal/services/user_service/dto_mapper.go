@@ -1,7 +1,7 @@
 package user_service
 
 import (
-	"github.com/AleksandrVishniakov/url-shortener-auth/app/internal/repositories/user_repo"
+	"github.com/AleksandrVishniakov/email-auth/app/internal/repositories/user_repo"
 )
 
 func mapUserDTOFromDAO(dao *user_repo.UserDAO) *UserDTO {

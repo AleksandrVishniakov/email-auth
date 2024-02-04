@@ -6,11 +6,11 @@ type UserDAO struct {
 	Id                 int
 	Email              string
 	IsEmailVerified    bool
-	EmailVerifyingHash string
+	EmailVerifyingCode int
 	CreatedAt          time.Time
 }
 
 type UserCreationData struct {
 	Email              string
-	EmailVerifyingHash string
+	EmailVerifyingCode int
 }

@@ -2,8 +2,8 @@ version: '3'
 
 services:
   app:
-    image: url-shortener-auth:local
-    container_name: url-shortener-auth-app
+    image: email-auth:local
+    container_name: email-auth-app
     environment:
       HTTP_PORT: 8003
     ports:
@@ -13,11 +13,11 @@ services:
 
   postgres:
     image: postgres:14-alpine
-    container_name: url-shortener-auth-psql
+    container_name: email-auth-psql
     ports:
       - "5001:5432"
     environment:
-      - POSTGRES_DB=url-shortener-auth-db
+      - POSTGRES_DB=email-auth-db
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
@@ -37,5 +37,5 @@ services:
       - ./db/migrations:/db/migrations
     environment:
       GOOSE_DRIVER: postgres
-      GOOSE_DBSTRING: "postgres://postgres:${DB_PASSWORD}@postgres:5432/url-shortener-auth-db?sslmode=disable"
+      GOOSE_DBSTRING: "postgres://postgres:${DB_PASSWORD}@postgres:5432/email-auth-db?sslmode=disable"
     command: ["-dir", "/db/migrations", "up"]

@@ -1,8 +1,9 @@
 package configs
 
 import (
-	"github.com/AleksandrVishniakov/url-shortener-auth/app/internal/repositories/postgres"
-	"github.com/AleksandrVishniakov/url-shortener-auth/app/internal/servers"
+	"github.com/AleksandrVishniakov/email-auth/app/internal/repositories/postgres"
+	"github.com/AleksandrVishniakov/email-auth/app/internal/servers"
+	"github.com/AleksandrVishniakov/email-auth/app/internal/services/email_service"
 	"gopkg.in/yaml.v3"
 	"io"
 	"log"
@@ -12,8 +13,9 @@ import (
 const configPath = "./configs/config.yml"
 
 type Configs struct {
-	HTTP *servers.HTTPConfigs `yaml:"http"`
-	DB   *postgres.DBConfigs  `yaml:"db"`
+	HTTP  *servers.HTTPConfigs        `yaml:"http"`
+	DB    *postgres.DBConfigs         `yaml:"db"`
+	Email *email_service.EmailConfigs `yaml:"email"`
 }
 
 func MustConfigs() *Configs {
