@@ -106,7 +106,7 @@ func (h *HTTPHandler) verifyEmail(c *gin.Context) {
 	}
 
 	if !ok {
-		rErr := e.NewResponseError(http.StatusBadRequest, "email validation failed")
+		rErr := e.NewResponseError(http.StatusUnauthorized, "email validation failed")
 		rErr.Abort(c)
 		return
 	}
