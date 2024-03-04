@@ -27,6 +27,9 @@ func (h *HTTPHandler) InitRoutes() *gin.Engine {
 	router.GET("/user/:email", h.getUserByEmail)
 	router.GET("/verify/:email", h.verifyEmail)
 
+	router.GET("/users", h.getAllUsers)
+	router.DELETE("/user/:email", h.deleteUser)
+
 	return router
 }
 
@@ -111,6 +114,33 @@ func (h *HTTPHandler) verifyEmail(c *gin.Context) {
 		return
 	}
 
+	if err != nil {
+		rErr := e.NewResponseError(http.StatusInternalServerError, err.Error())
+		rErr.Abort(c)
+		return
+	}
+}
+
+func (h *HTTPHandler) getAllUsers(c *gin.Context) {
+	users, err := h.userService.FindAll()
+	if err != nil {
+		rErr := e.NewResponseError(http.StatusInternalServerError, err.Error())
+		rErr.Abort(c)
+		return
+	}
+
+	c.IndentedJSON(http.StatusOK, users)
+}
+
+func (h *HTTPHandler) deleteUser(c *gin.Context) {
+	email, exists := c.Params.Get("email")
+	if !exists {
+		rErr := e.NewResponseError(http.StatusBadRequest, "empty email parameter")
+		rErr.Abort(c)
+		return
+	}
+
+	err := h.userService.Delete(email)
 	if err != nil {
 		rErr := e.NewResponseError(http.StatusInternalServerError, err.Error())
 		rErr.Abort(c)

@@ -13,6 +13,9 @@ type UserService interface {
 	GetUserByEmail(email string) (*UserDTO, error)
 	AuthUser(email string) (bool, error)
 	VerifyEmail(email string, code int) (bool, error)
+
+	FindAll() ([]*UserDTO, error)
+	Delete(email string) error
 }
 
 type userService struct {
@@ -104,6 +107,25 @@ func (u *userService) VerifyEmail(email string, code int) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func (u *userService) FindAll() ([]*UserDTO, error) {
+	entities, err := u.userRepository.FindAll()
+	if err != nil {
+		return nil, err
+	}
+
+	var users = []*UserDTO{}
+
+	for _, e := range entities {
+		users = append(users, mapUserDTOFromDAO(e))
+	}
+
+	return users, nil
+}
+
+func (u *userService) Delete(email string) error {
+	return u.userRepository.Delete(email)
 }
 
 func generateCode() int {

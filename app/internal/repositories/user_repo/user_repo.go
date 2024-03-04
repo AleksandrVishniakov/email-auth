@@ -17,6 +17,10 @@ type UserRepository interface {
 	MarkEmailAsVerified(email string) error
 	ResetEmailVerifyingCode(email string) error
 	UpdateEmailVerifyingCode(email string, code int) error
+
+	FindAll() ([]*UserDAO, error)
+
+	Delete(email string) error
 }
 
 type userRepository struct {
@@ -114,6 +118,41 @@ func (u *userRepository) UpdateEmailVerifyingCode(email string, code int) (err e
 	}
 
 	return nil
+}
+
+func (u *userRepository) FindAll() (users []*UserDAO, err error) {
+	defer func() { err = wrapDbErrIfNotNil(err, "error while getting all users") }()
+
+	rows, err := u.db.Query("SELECT * FROM users")
+	if err != nil {
+		return nil, err
+	}
+
+	users = []*UserDAO{}
+
+	for rows.Next() {
+		var user = &UserDAO{}
+
+		err := rows.Scan(&user.Id, &user.Email, &user.IsEmailVerified, &user.CreatedAt, &user.EmailVerifyingCode)
+		if err != nil {
+			return nil, err
+		}
+
+		users = append(users, user)
+	}
+
+	return users, nil
+}
+
+func (u *userRepository) Delete(email string) (err error) {
+	defer func() { err = wrapDbErrIfNotNil(err, "error while deleting user") }()
+
+	_, err = u.db.Exec(
+		"DELETE FROM users WHERE email=$1",
+		email,
+	)
+
+	return err
 }
 
 func wrapDbErrIfNotNil(err error, description string) error {
